@@ -1768,7 +1768,7 @@ if ($d->{'virt'}) {
 				 $_->{'sectionvalue'} eq $d->{'ip'} } @$conf;
 		}
 
-	if ($enable) {
+	if ($enable && $d->{'mail'}) {
 		# Needs a cert for the IP
 		if (!$l) {
 			$l = { 'name' => 'local',
@@ -1890,7 +1890,7 @@ else {
 	my @sslnames = &get_hostnames_for_ssl($d);
 	my %sslnames = map { $_, 1 } @sslnames;
 	my @myloc = grep { $sslnames{$_->{'value'}} } @loc;
-	if ($enable && !@myloc) {
+	if ($enable && !@myloc && $d->{'mail'}) {
 		# Need to add
 		foreach my $n (@sslnames) {
 			my $l = { 'name' => 'local_name',
@@ -1912,8 +1912,18 @@ else {
 			&dovecot::save_section($conf, $l);
 			push(@$conf, $l);
 			&flush_file_lines($l->{'file'}, undef, 1);
-			}
 		}
+	}
+	elsif ($enable && @myloc && !$d->{'mail'}) {
+        	# Need to remove
+        	foreach my $l (reverse(@myloc)) {
+            	my $lref = &read_file_lines($l->{'file'});
+            	splice(@$lref, $l->{'line'},
+                	    $l->{'eline'}-$l->{'line'}+1);
+            	&flush_file_lines($l->{'file'});
+            	}
+        	undef(@dovecot::get_config_cache);
+    	}
 	elsif (!$enable && @myloc) {
 		# Need to remove
 		foreach my $l (reverse(@myloc)) {
